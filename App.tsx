@@ -11,18 +11,29 @@ import { Player, GameSettings, GameState, Card, AlcoholType, Difficulty } from '
 // 1. HOME SCREEN
 const HomeScreen = ({ onStart }: { onStart: () => void }) => (
   <div className="flex flex-col items-center justify-center h-full space-y-8 p-6 text-center">
-    <div className="relative">
-      <div className="absolute -inset-1 bg-gradient-to-r from-pink-600 to-purple-600 rounded-lg blur opacity-75 animate-pulse"></div>
-      <h1 className="relative text-6xl font-black text-transparent bg-clip-text bg-gradient-to-r from-white to-gray-300 drop-shadow-sm">
+    <div className="relative group">
+      {/* Decorative blur behind logo */}
+      <div className="absolute -inset-4 bg-gradient-to-tr from-purple-600 to-pink-600 rounded-full blur-xl opacity-40 animate-pulse"></div>
+      
+      <img 
+        src="https://blogger.googleusercontent.com/img/b/R29vZ2xl/AVvXsEh9vA7gqfKi_kCFn4ofzRAQ1AnJ2DDUsHjY2sxF5tGjlB7UilNBy5HCyH4GB84ow4kiX42DC1oKyTaUst2cCgO9JH-YoXsxlXObvKjbEYWBlU7TPvY4cgBOQii3k7Vostr4w1un99tMZiPSirstDUpcpXlie8kdtETMcwY6taR4216NBJdv1I6yOJUx3v0/s16000/logo%20palmier.png" 
+        alt="Logo Le Palmier" 
+        className="relative w-48 h-48 object-contain drop-shadow-2xl transform transition-transform duration-700 hover:scale-105"
+      />
+    </div>
+    
+    <div className="space-y-2">
+      <h1 className="text-5xl font-black text-transparent bg-clip-text bg-gradient-to-r from-white to-gray-300 drop-shadow-sm tracking-tight">
         Le Palmier
       </h1>
+      <p className="text-lg text-white/70 font-light tracking-wide max-w-xs mx-auto">
+        L'expérience de soirée ultime.
+      </p>
     </div>
-    <p className="text-lg text-white/70 font-light tracking-wide max-w-xs">
-      L'expérience de soirée ultime.
-    </p>
+
     <button
       onClick={onStart}
-      className="group relative px-8 py-4 bg-white/10 backdrop-blur-md border border-white/20 rounded-full overflow-hidden transition-all hover:bg-white/20 hover:scale-105 active:scale-95"
+      className="group relative px-10 py-4 bg-white/10 backdrop-blur-md border border-white/20 rounded-full overflow-hidden transition-all hover:bg-white/20 hover:scale-105 active:scale-95 shadow-[0_0_20px_rgba(255,255,255,0.1)]"
     >
       <span className="relative z-10 text-xl font-medium text-white">Jouer</span>
     </button>
