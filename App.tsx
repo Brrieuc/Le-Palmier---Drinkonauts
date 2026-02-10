@@ -43,7 +43,13 @@ const HomeScreen = ({ onStart }: { onStart: () => void }) => (
 // 2. SETUP SCREEN
 const SetupScreen = ({ onStartGame }: { onStartGame: (players: Player[], settings: GameSettings) => void }) => {
   const [players, setPlayers] = useState<Player[]>([]);
+  
+  // Form State
   const [newName, setNewName] = useState('');
+  const [newWeight, setNewWeight] = useState<number>(70);
+  const [newGender, setNewGender] = useState<'male' | 'female'>('male');
+  const [newAlcohol, setNewAlcohol] = useState<AlcoholType>('beer');
+
   const [settings, setSettings] = useState<GameSettings>({
     mode: 'fun',
     difficulty: 'medium',
@@ -60,14 +66,18 @@ const SetupScreen = ({ onStartGame }: { onStartGame: (players: Player[], setting
     const newPlayer: Player = {
       id: Date.now().toString(),
       name: newName,
-      alcoholType: 'beer',
+      alcoholType: newAlcohol,
       sipsTaken: 0,
       simonFailures: 0,
-      gender: 'male', // Default
-      weight: 70 // Default
+      gender: newGender,
+      weight: newWeight
     };
     setPlayers([...players, newPlayer]);
     setNewName('');
+    // Reset to defaults
+    setNewWeight(70);
+    setNewGender('male');
+    setNewAlcohol('beer');
   };
 
   const startScanning = async () => {
@@ -107,6 +117,14 @@ const SetupScreen = ({ onStartGame }: { onStartGame: (players: Player[], setting
       stopScanning();
   };
 
+  const alcoholLabels: Record<AlcoholType, string> = {
+      beer: 'Bière (5%)',
+      wine: 'Vin (12%)',
+      mix_weak: 'Soft Mix',
+      mix_strong: 'Hard Mix',
+      hard: 'Shots'
+  };
+
   return (
     <div className="flex flex-col h-full p-6 overflow-y-auto pb-20">
       <h2 className="text-3xl font-bold mb-6">Configuration</h2>
@@ -129,42 +147,90 @@ const SetupScreen = ({ onStartGame }: { onStartGame: (players: Player[], setting
           </button>
         </div>
 
-         <div className="glass-panel p-4 rounded-2xl flex flex-col col-span-2">
-          <label className="text-xs text-gray-400 mb-2">Difficulté</label>
-          <div className="flex justify-between gap-1">
-            {(['soft', 'medium', 'hard', 'goated'] as Difficulty[]).map(d => (
-                <button key={d} onClick={() => setSettings({...settings, difficulty: d})}
-                    className={`flex-1 py-1 rounded-lg text-xs capitalize ${settings.difficulty === d ? 'bg-purple-500 text-white' : 'bg-white/10'}`}>
-                    {d}
-                </button>
-            ))}
-          </div>
-        </div>
+        {/* Hide Difficulty in Quick Mode */}
+        {settings.mode !== 'quick' && (
+             <div className="glass-panel p-4 rounded-2xl flex flex-col col-span-2">
+              <label className="text-xs text-gray-400 mb-2">Difficulté</label>
+              <div className="flex justify-between gap-1">
+                {(['soft', 'medium', 'hard', 'goated'] as Difficulty[]).map(d => (
+                    <button key={d} onClick={() => setSettings({...settings, difficulty: d})}
+                        className={`flex-1 py-1 rounded-lg text-xs capitalize ${settings.difficulty === d ? 'bg-purple-500 text-white' : 'bg-white/10'}`}>
+                        {d}
+                    </button>
+                ))}
+              </div>
+            </div>
+        )}
       </div>
 
       {/* Players List */}
       <div className="flex-1 glass-panel rounded-2xl p-4 mb-4 overflow-hidden flex flex-col">
         <h3 className="text-lg font-bold mb-3">Joueurs ({players.length})</h3>
-        <div className="overflow-y-auto flex-1 space-y-2">
+        <div className="overflow-y-auto flex-1 space-y-2 mb-4">
+            {players.length === 0 && <p className="text-sm text-gray-500 text-center italic">Aucun joueur</p>}
             {players.map(p => (
-                <div key={p.id} className="flex justify-between items-center bg-white/5 p-2 rounded-lg">
-                    <span>{p.name}</span>
-                    <span className="text-xs text-gray-400 capitalize">{p.alcoholType}</span>
+                <div key={p.id} className="flex justify-between items-center bg-white/5 p-2 rounded-lg border border-white/5">
+                    <div>
+                        <span className="font-medium block">{p.name}</span>
+                        <span className="text-[10px] text-gray-400">{alcoholLabels[p.alcoholType]} • {p.weight}kg • {p.gender === 'male' ? 'H' : 'F'}</span>
+                    </div>
+                    <button onClick={() => setPlayers(players.filter(pl => pl.id !== p.id))} className="text-red-400 text-xs px-2">✕</button>
                 </div>
             ))}
         </div>
         
-        <div className="mt-4 flex gap-2">
+        {/* Add Player Form */}
+        <div className="bg-black/20 p-3 rounded-xl space-y-2">
             <input 
                 type="text" 
                 value={newName}
                 onChange={(e) => setNewName(e.target.value)}
                 placeholder="Nom du joueur"
-                className="flex-1 bg-white/10 border border-white/20 rounded-lg px-3 py-2 focus:outline-none focus:border-purple-500"
+                className="w-full bg-white/10 border border-white/20 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-purple-500 placeholder-white/30"
             />
-            <button onClick={addPlayer} className="bg-white/20 px-4 rounded-lg">+</button>
+            
+            <div className="flex gap-2">
+                 <select 
+                    value={newAlcohol}
+                    onChange={(e) => setNewAlcohol(e.target.value as AlcoholType)}
+                    className="flex-1 bg-white/10 border border-white/20 rounded-lg px-2 py-2 text-xs focus:outline-none"
+                 >
+                     {Object.entries(alcoholLabels).map(([key, label]) => (
+                         <option key={key} value={key} className="bg-gray-900 text-white">{label}</option>
+                     ))}
+                 </select>
+            </div>
+
+            <div className="flex gap-2 items-center">
+                <div className="flex-1 flex items-center bg-white/10 border border-white/20 rounded-lg px-2">
+                    <input 
+                        type="number" 
+                        value={newWeight}
+                        onChange={(e) => setNewWeight(parseInt(e.target.value) || 0)}
+                        className="w-full bg-transparent py-2 text-xs focus:outline-none"
+                        placeholder="70"
+                    />
+                    <span className="text-xs text-gray-400 mr-1">kg</span>
+                </div>
+                
+                <div className="flex bg-white/10 border border-white/20 rounded-lg p-1">
+                    <button 
+                        onClick={() => setNewGender('male')}
+                        className={`px-3 py-1 rounded text-xs font-bold transition-colors ${newGender === 'male' ? 'bg-blue-500 text-white' : 'text-gray-400'}`}
+                    >H</button>
+                    <button 
+                        onClick={() => setNewGender('female')}
+                        className={`px-3 py-1 rounded text-xs font-bold transition-colors ${newGender === 'female' ? 'bg-pink-500 text-white' : 'text-gray-400'}`}
+                    >F</button>
+                </div>
+                
+                <button onClick={addPlayer} className="bg-white/20 px-4 py-2 rounded-lg hover:bg-white/30 transition-colors">+</button>
+            </div>
         </div>
-        <button onClick={startScanning} className="mt-2 w-full py-2 bg-indigo-500/50 rounded-lg text-sm">Scanner un Pass Ami</button>
+        
+        <button onClick={startScanning} className="mt-3 w-full py-2 bg-indigo-500/20 border border-indigo-500/30 text-indigo-300 rounded-lg text-xs hover:bg-indigo-500/30 transition-colors">
+            📸 Scanner un Pass Ami
+        </button>
       </div>
 
       {isScanning && (
@@ -185,7 +251,7 @@ const SetupScreen = ({ onStartGame }: { onStartGame: (players: Player[], setting
       <button 
         onClick={() => onStartGame(players, settings)}
         disabled={players.length === 0}
-        className="w-full py-4 bg-gradient-to-r from-purple-600 to-blue-600 rounded-xl font-bold text-lg disabled:opacity-50"
+        className="w-full py-4 bg-gradient-to-r from-purple-600 to-blue-600 rounded-xl font-bold text-lg disabled:opacity-50 shadow-lg shadow-purple-900/50"
       >
         Lancer la Partie
       </button>
@@ -236,7 +302,6 @@ const GameScreen = ({ players, settings, onEndGame }: { players: Player[], setti
             }));
             
             // Check for Simon Trigger on next turn start? 
-            // The prompt says "Before seeing the rule". So we check simon probability here.
             if (settings.simonEnabled && Math.random() > 0.7) { // 30% chance of Simon
                 setShowSimon(true);
             }
@@ -253,10 +318,11 @@ const GameScreen = ({ players, settings, onEndGame }: { players: Player[], setti
                 discardPile: [...prev.discardPile, card]
             }));
 
-            // Update stats logic simplified (Just incrementing sips for current player for basic cards)
-            // Real logic would parse the Card Rule Action
+            // Calculate sips based on difficulty
             const difficultyMult = getDifficultyMultiplier(settings.difficulty);
-            const baseSip = 1; // Simplify logic
+            // In quick mode, we might want faster gameplay (maybe higher base), but keeping it consistent for now.
+            // If mode is 'quick' and difficulty is hidden, we assume 'medium' (1.0) or we force it in setup.
+            const baseSip = 1; 
             
             const updatedPlayers = [...localPlayers];
             updatedPlayers[gameState.currentPlayerIndex].sipsTaken += (baseSip * difficultyMult);
@@ -300,7 +366,7 @@ const GameScreen = ({ players, settings, onEndGame }: { players: Player[], setti
                         <PlayingCard 
                             card={gameState.currentCard} 
                             isFlipped={gameState.isCardFlipped} 
-                            onClick={handleNextTurn} // Click card to proceed
+                            onClick={handleNextTurn} 
                         />
                     ) : (
                          <div 
@@ -324,7 +390,7 @@ const GameScreen = ({ players, settings, onEndGame }: { players: Player[], setti
                         <div className={`w-10 h-10 rounded-full flex items-center justify-center text-sm font-bold ${i === gameState.currentPlayerIndex ? 'bg-gradient-to-r from-purple-500 to-pink-500' : 'bg-gray-700'}`}>
                             {p.name.charAt(0)}
                         </div>
-                        <span className="text-[10px] mt-1">{p.sipsTaken} gorgées</span>
+                        <span className="text-[10px] mt-1">{p.sipsTaken} g.</span>
                     </div>
                 ))}
             </div>
@@ -333,35 +399,71 @@ const GameScreen = ({ players, settings, onEndGame }: { players: Player[], setti
 };
 
 // 4. END SCREEN
-const EndScreen = ({ players, onRestart }: { players: Player[], onRestart: () => void }) => {
+const EndScreen = ({ players, settings, onRestart }: { players: Player[], settings: GameSettings, onRestart: () => void }) => {
     
     // Save to Firebase on mount
     useEffect(() => {
-        dbService.saveGameSession(players, { mode: 'fun', difficulty: 'medium', simonEnabled: true, maxPlayers: players.length });
+        dbService.saveGameSession(players, settings);
     }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+    // Determine max simon failures for badge
+    const maxSimonFails = Math.max(...players.map(p => p.simonFailures));
+
+    // Sort by BAC (Widmark) descending
+    const sortedPlayers = [...players].sort((a, b) => {
+        const bacA = parseFloat(calculateWidmark(a));
+        const bacB = parseFloat(calculateWidmark(b));
+        return bacB - bacA;
+    });
 
     return (
         <div className="h-full flex flex-col p-6 overflow-y-auto">
             <h2 className="text-4xl font-black text-center mb-8 bg-clip-text text-transparent bg-gradient-to-r from-yellow-400 to-pink-500">
-                Résultats
+                Statistiques
             </h2>
 
             <div className="space-y-4 mb-8">
-                {players.sort((a,b) => b.sipsTaken - a.sipsTaken).map((p, index) => (
-                    <div key={p.id} className="glass-panel p-4 rounded-xl flex items-center justify-between">
-                        <div className="flex items-center gap-4">
-                            <span className="text-2xl font-bold text-gray-500">#{index + 1}</span>
-                            <div>
-                                <p className="font-bold text-lg">{p.name}</p>
-                                <p className="text-xs text-gray-400">Simon Fails: {p.simonFailures}</p>
+                {sortedPlayers.map((p, index) => {
+                    const bac = calculateWidmark(p);
+                    const isBourreDeLaGare = settings.simonEnabled && p.simonFailures === maxSimonFails && maxSimonFails > 0;
+
+                    return (
+                        <div key={p.id} className={`glass-panel p-4 rounded-xl flex flex-col relative overflow-hidden ${index === 0 ? 'border-yellow-500/50 shadow-[0_0_20px_rgba(234,179,8,0.2)]' : ''}`}>
+                            {/* Rank Badge */}
+                            <div className="flex items-center justify-between mb-2">
+                                <div className="flex items-center gap-3">
+                                    <span className={`text-2xl font-bold ${index === 0 ? 'text-yellow-400' : 'text-gray-500'}`}>
+                                        #{index + 1}
+                                    </span>
+                                    <div>
+                                        <p className="font-bold text-lg flex items-center gap-2">
+                                            {p.name}
+                                            {index === 0 && <span>👑</span>}
+                                        </p>
+                                        <p className="text-xs text-gray-400">{p.sipsTaken} gorgées totales</p>
+                                    </div>
+                                </div>
+                                <div className="text-right">
+                                    <p className="text-2xl font-black text-purple-400">{bac}</p>
+                                    <p className="text-[10px] text-gray-400 uppercase tracking-wider">g/L ALC.</p>
+                                </div>
+                            </div>
+                            
+                            {/* Badges / Extras */}
+                            <div className="flex flex-wrap gap-2 mt-2">
+                                {isBourreDeLaGare && (
+                                    <div className="flex items-center gap-2 bg-red-900/40 border border-red-500/30 px-3 py-1 rounded-full">
+                                        <span className="text-lg">🥴</span>
+                                        <div className="flex flex-col">
+                                            <span className="text-[10px] font-bold text-red-200 uppercase leading-none">Bourré de la gare</span>
+                                            <span className="text-[9px] text-red-400">{p.simonFailures} échecs Simon</span>
+                                        </div>
+                                    </div>
+                                )}
                             </div>
                         </div>
-                        <div className="text-right">
-                            <p className="text-xl font-bold text-purple-400">{p.sipsTaken} <span className="text-xs text-white">gorgées</span></p>
-                            <p className="text-[10px] text-gray-500">~{calculateWidmark(p)} g/L alc.</p>
-                        </div>
-                    </div>
-                ))}
+                    );
+                })}
             </div>
 
             <button onClick={onRestart} className="w-full py-4 bg-white text-black font-bold rounded-xl mt-auto">
@@ -411,7 +513,11 @@ export default function App() {
       )}
 
       {screen === 'end' && gameData && (
-          <EndScreen players={gameData.players} onRestart={() => setScreen('home')} />
+          <EndScreen 
+            players={gameData.players} 
+            settings={gameData.settings}
+            onRestart={() => setScreen('home')} 
+          />
       )}
     </Layout>
   );
