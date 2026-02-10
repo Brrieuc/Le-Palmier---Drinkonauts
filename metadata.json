@@ -1,0 +1,7 @@
+{
+  "name": "Le Palmier Premium",
+  "description": "Une expérience de jeu de soirée premium style Apple/Glassmorphism avec intégration Firebase.",
+  "requestFramePermissions": [
+    "camera"
+  ]
+}
