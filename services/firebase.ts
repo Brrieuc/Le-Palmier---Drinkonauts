@@ -12,26 +12,39 @@ const firebaseConfig = {
 
 // Singleton pattern to ensure initializeApp is called only once
 let app;
-let auth: Auth;
-let db: Firestore;
+let auth: Auth | undefined;
+let db: Firestore | undefined;
 
-if (!getApps().length) {
-  app = initializeApp(firebaseConfig);
-} else {
-  app = getApp();
+try {
+  if (!getApps().length) {
+    app = initializeApp(firebaseConfig);
+  } else {
+    app = getApp();
+  }
+} catch (e) {
+  console.error("Firebase initialization failed:", e);
 }
 
-auth = getAuth(app);
-db = getFirestore(app);
+try {
+  if (app) {
+    auth = getAuth(app);
+    db = getFirestore(app);
+  }
+} catch (e) {
+  console.error("Firebase service registration failed:", e);
+}
 
 export const authService = {
   loginAnonymous: async () => {
+    if (!auth) {
+      console.warn("Offline Mode: Auth not initialized.");
+      return null;
+    }
     try {
       const userCredential = await signInAnonymously(auth);
       return userCredential.user;
     } catch (error: any) {
       // Handle the case where Anonymous Auth is disabled in Firebase Console
-      // We suppress the error log here to avoid alarming the user, as offline mode is a valid fallback.
       if (error.code === 'auth/admin-restricted-operation' || error.code === 'auth/operation-not-allowed') {
         console.warn("Offline Mode: Anonymous Authentication is not enabled in Firebase Console.");
         return null;
@@ -42,12 +55,12 @@ export const authService = {
       return null;
     }
   },
-  getCurrentUser: () => auth.currentUser
+  getCurrentUser: () => auth?.currentUser
 };
 
 export const dbService = {
   saveGameSession: async (players: Player[], settings: GameSettings) => {
-    if (!auth.currentUser) {
+    if (!auth?.currentUser || !db) {
       return;
     }
     try {
@@ -66,7 +79,7 @@ export const dbService = {
     }
   },
   addFriend: async (friendId: string, friendName: string) => {
-    if (!auth.currentUser) {
+    if (!auth?.currentUser || !db) {
       return;
     }
     try {
