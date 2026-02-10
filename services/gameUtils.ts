@@ -24,19 +24,19 @@ export const shuffleDeck = (deck: Card[]): Card[] => {
 
 export const getCardRule = (rank: Rank): { title: string; description: string; action: string } => {
   switch (rank) {
-    case 'A': return { title: 'L\'As', description: 'Cul Sec !', action: 'drink_all' };
-    case '2': return { title: 'Le Deux', description: 'Distribue 2 gorgées.', action: 'distribute_2' };
-    case '3': return { title: 'Le Trois', description: 'Distribue 3 gorgées.', action: 'distribute_3' };
+    case 'A': return { title: 'As', description: 'Cul Sec !', action: 'drink_all' };
+    case '2': return { title: 'Deux', description: 'Distribue 2 gorgées.', action: 'distribute_2' };
+    case '3': return { title: 'Trois', description: 'Distribue 3 gorgées.', action: 'distribute_3' };
     case '4': return { title: 'Four to the Floor', description: 'Dernier avec le doigt en bas boit !', action: 'game_floor' };
     case '5': return { title: 'Five to the Sky', description: 'Dernier avec le doigt en haut boit !', action: 'game_sky' };
     case '6': return { title: 'Dans ma Valise', description: 'Jeu de mémoire. Le premier qui se trompe boit.', action: 'game_memory' };
     case '7': return { title: 'Maître de la Question', description: 'Si tu poses une question et qu\'on répond, ils boivent.', action: 'status_question' };
-    case '8': return { title: 'Le Huit', description: 'Distribue 8 gorgées.', action: 'distribute_8' };
+    case '8': return { title: 'Huit', description: 'Distribue 8 gorgées.', action: 'distribute_8' };
     case '9': return { title: 'Je n\'ai jamais', description: 'Ceux qui l\'ont déjà fait boivent.', action: 'game_never' };
     case '10': return { title: 'Maître du Freeze', description: 'Si tu te figes, tout le monde doit te suivre. Le dernier boit.', action: 'status_freeze' };
-    case 'J': return { title: 'Le Thème', description: 'Choisis un thème. Le premier qui sèche boit.', action: 'game_theme' };
-    case 'Q': return { title: 'La Dame', description: 'À la tienne ! Tout le monde boit.', action: 'drink_everyone' };
-    case 'K': return { title: 'Le Roi', description: 'Invente une règle pour la partie.', action: 'status_rule' };
+    case 'J': return { title: 'Thème', description: 'Choisis un thème. Le premier qui sèche boit.', action: 'game_theme' };
+    case 'Q': return { title: 'Dame', description: 'À la tienne ! Tout le monde boit.', action: 'drink_everyone' };
+    case 'K': return { title: 'Roi', description: 'Invente une règle pour la partie.', action: 'status_rule' };
     default: return { title: '', description: '', action: '' };
   }
 };
