@@ -4,7 +4,7 @@ import { Layout } from './components/Layout';
 import { PlayingCard } from './components/Card';
 import { SimonGame } from './components/SimonGame';
 import { MathGame } from './components/MathGame';
-import { authService, dbService } from './services/firebase';
+import { authService, dbService, auth } from './services/firebase';
 import { createDeck, getDifficultyMultiplier, calculateWidmark, getCardRule, getAlcoholIcon, getDistributionCost, calculateDynamicSips } from './services/gameUtils';
 import { Player, GameSettings, GameState, Card, AlcoholType, Difficulty, PendingAction, ActiveRule, DrinkosaurProfile } from './types';
 
@@ -121,113 +121,78 @@ const UserProfileModal = ({
     );
 };
 
-// 3. MODAL OVERLAY (Pour l'AS ou PÉNALITÉ CUL SEC)
-const ModalOverlay = ({ 
-    action, 
-    onResolve 
-}: { 
-    action: PendingAction, 
-    onResolve: (updates: { targetId: string, sips: number }[]) => void 
-}) => {
-    const [aceChoice, setAceChoice] = useState<'cul_sec' | 'sips' | null>(null);
-    const [aceSipsInput, setAceSipsInput] = useState(5);
-
-    const submitAce = () => {
-        if (aceChoice === 'cul_sec') {
-            if (action.initiatorId) {
-                // 10 gorgées symboliques pour un cul sec
-                onResolve([{ targetId: action.initiatorId, sips: 10 }]);
-            }
+// 3. MODAL OVERLAY (ACE CHECK / MATH PENALTY)
+const ModalOverlay = ({ action, onResolve }: { action: PendingAction, onResolve: (updates: { targetId: string, sips: number }[]) => void }) => {
+    const handleConfirm = () => {
+        if (action.initiatorId) {
+             onResolve([{ targetId: action.initiatorId, sips: 5 }]); // 5 sips for penalty/Ace
         } else {
-            if (action.initiatorId) {
-                onResolve([{ targetId: action.initiatorId, sips: aceSipsInput }]);
-            }
+             onResolve([]);
         }
     };
 
-    if (action.type === 'ace_check' || action.type === 'math_penalty') {
-        const title = action.type === 'ace_check' ? "L'AS !" : "CALCUL RATÉ !";
-        const subtitle = action.type === 'ace_check' ? "As-tu fini ton verre (Cul-Sec) ?" : "Tu as brisé le cercle ! Cul sec effectué ?";
-
-        return (
-            <div className="absolute inset-0 z-50 bg-black/80 flex items-center justify-center p-4 animate-fade-in">
-                <div className="bg-gray-900 border border-white/10 rounded-2xl p-6 w-full max-w-sm shadow-2xl relative">
-                    <h3 className={`text-3xl font-black mb-2 text-center text-transparent bg-clip-text bg-gradient-to-r ${action.type === 'math_penalty' ? 'from-red-500 to-orange-500' : 'from-yellow-400 to-red-500'}`}>
-                        {title}
-                    </h3>
-                    <p className="text-white/80 mb-6 text-center">{subtitle}</p>
-                    
-                    {!aceChoice ? (
-                        <div className="grid grid-cols-2 gap-4 w-full">
-                            <button onClick={() => setAceChoice('cul_sec')} className="py-4 bg-gradient-to-br from-green-600 to-green-800 rounded-xl font-bold text-lg shadow-lg">OUI 🍺</button>
-                            <button onClick={() => setAceChoice('sips')} className="py-4 bg-white/10 rounded-xl font-bold text-lg">NON</button>
-                        </div>
-                    ) : aceChoice === 'cul_sec' ? (
-                        <div className="text-center">
-                            <span className="text-5xl mb-4 block animate-bounce">🏆</span>
-                            <p className="mb-6 font-bold text-yellow-400">Légende !</p>
-                            <button onClick={submitAce} className="w-full py-3 bg-white text-black rounded-xl font-bold">Continuer</button>
-                        </div>
-                    ) : (
-                        <div className="w-full bg-white/5 p-4 rounded-xl">
-                            <p className="mb-4 text-center text-sm">Combien de gorgées as-tu bues ?</p>
-                            <div className="flex items-center gap-4 mb-6">
-                                <button onClick={() => setAceSipsInput(Math.max(1, aceSipsInput - 1))} className="w-10 h-10 rounded-full bg-white/10 text-xl font-bold">-</button>
-                                <span className="flex-1 text-center text-3xl font-bold">{aceSipsInput}</span>
-                                <button onClick={() => setAceSipsInput(aceSipsInput + 1)} className="w-10 h-10 rounded-full bg-white/10 text-xl font-bold">+</button>
-                            </div>
-                            <button onClick={submitAce} className="w-full py-3 bg-indigo-600 rounded-xl font-bold">Valider</button>
-                        </div>
-                    )}
+    return (
+        <div className="fixed inset-0 z-[80] bg-black/90 flex items-center justify-center p-6 animate-fade-in">
+            <div className="bg-white/10 border border-white/20 p-8 rounded-2xl max-w-sm text-center backdrop-blur-md shadow-2xl relative overflow-hidden">
+                <div className="absolute inset-0 bg-gradient-to-br from-red-500/10 to-orange-500/10"></div>
+                <h3 className="relative z-10 text-2xl font-black text-white mb-4 uppercase tracking-wider">
+                    {action.type === 'ace_check' ? 'CUL SEC !' : 'PÉNALITÉ !'}
+                </h3>
+                <p className="relative z-10 text-gray-300 mb-8 font-medium">
+                    {action.type === 'ace_check' ? "L'As a parlé. Finis ton verre." : "Mauvaise réponse... ça va coûter cher."}
+                </p>
+                <div className="relative z-10 text-7xl mb-8 animate-bounce">
+                    {action.type === 'ace_check' ? '🍺' : '🤯'}
                 </div>
+                <button 
+                    onClick={handleConfirm}
+                    className="relative z-10 w-full py-4 bg-gradient-to-r from-red-600 to-orange-600 rounded-xl font-bold text-white shadow-lg shadow-red-900/50 hover:scale-105 transition-transform border border-white/20"
+                >
+                    J'ai bu
+                </button>
             </div>
-        );
-    }
-    return null;
+        </div>
+    );
 };
 
-
 // 4. ACTIVE RULES SIDEBAR
-const ActiveRulesSidebar = ({ 
-    rules, 
-    players, 
-    onTriggerRule 
-}: { 
-    rules: ActiveRule[], 
-    players: Player[], 
-    onTriggerRule: (rule: ActiveRule) => void 
-}) => {
+const ActiveRulesSidebar = ({ rules, players, onTriggerRule }: { rules: ActiveRule[], players: Player[], onTriggerRule: (rule: ActiveRule) => void }) => {
     if (rules.length === 0) return null;
 
     return (
-        <div className="absolute top-16 right-0 z-30 flex flex-col gap-2 p-2 max-h-[60vh] overflow-y-auto no-scrollbar pointer-events-auto">
+        <div className="fixed left-4 top-1/2 transform -translate-y-1/2 z-30 flex flex-col gap-3 pointer-events-auto">
             {rules.map(rule => {
                 const player = players.find(p => p.id === rule.playerId);
                 if (!player) return null;
                 
-                let borderColor = 'border-purple-500';
-                let bgColor = 'bg-purple-900/80';
-                let icon = '❓';
-
-                if (rule.type === 'king') {
-                    borderColor = 'border-yellow-500';
-                    bgColor = 'bg-yellow-900/80';
-                    icon = '👑';
-                } else if (rule.type === 'freeze_master') {
-                    borderColor = 'border-cyan-400';
-                    bgColor = 'bg-cyan-900/80';
-                    icon = '❄️';
+                let icon = '';
+                let colorClass = '';
+                
+                if (rule.type === 'king') { 
+                    icon = '👑'; 
+                    colorClass = 'bg-yellow-500/20 border-yellow-500/50 text-yellow-200 hover:bg-yellow-500/40'; 
+                }
+                else if (rule.type === 'question_master') { 
+                    icon = '❓'; 
+                    colorClass = 'bg-purple-500/20 border-purple-500/50 text-purple-200 hover:bg-purple-500/40'; 
+                }
+                else if (rule.type === 'freeze_master') { 
+                    icon = '❄️'; 
+                    colorClass = 'bg-cyan-500/20 border-cyan-500/50 text-cyan-200 hover:bg-cyan-500/40'; 
                 }
 
                 return (
                     <button 
                         key={rule.id}
                         onClick={() => onTriggerRule(rule)}
-                        className={`relative w-12 h-12 rounded-full border-2 flex items-center justify-center shadow-lg transition-transform active:scale-95 ${borderColor} ${bgColor}`}
+                        className={`group flex items-center gap-3 p-3 rounded-2xl backdrop-blur-md border shadow-lg transition-all duration-300 hover:scale-110 active:scale-95 ${colorClass}`}
                     >
-                        <span className="font-bold text-xs text-white truncate w-full text-center px-1">{player.name.substring(0,3)}</span>
-                        <div className="absolute -top-2 -right-1 w-6 h-6 rounded-full bg-white flex items-center justify-center shadow-sm text-black">
-                            <span className="text-xs">{icon}</span>
+                        <span className="text-2xl filter drop-shadow-md">{icon}</span>
+                        <div className="max-w-0 overflow-hidden group-hover:max-w-[100px] transition-all duration-300 ease-out whitespace-nowrap">
+                            <div className="flex flex-col text-left pr-2">
+                                <span className="text-[10px] uppercase opacity-70 leading-none mb-0.5">{rule.type.replace('_', ' ')}</span>
+                                <span className="text-xs font-bold leading-none">{player.name}</span>
+                            </div>
                         </div>
                     </button>
                 );
@@ -236,10 +201,7 @@ const ActiveRulesSidebar = ({
     );
 };
 
-
-// --- SCREENS ---
-
-// 1. HOME SCREEN
+// 5. HOME SCREEN
 const HomeScreen = ({ onStart, onOpenProfile, currentUser }: { onStart: () => void, onOpenProfile: () => void, currentUser: DrinkosaurProfile | null }) => (
   <div className="flex flex-col items-center justify-center h-full space-y-8 p-6 text-center relative">
     
@@ -286,7 +248,7 @@ const HomeScreen = ({ onStart, onOpenProfile, currentUser }: { onStart: () => vo
   </div>
 );
 
-// 2. SETUP SCREEN
+// 6. SETUP SCREEN
 const SetupScreen = ({ onStartGame, currentUser }: { onStartGame: (players: Player[], settings: GameSettings) => void, currentUser: DrinkosaurProfile | null }) => {
   const [players, setPlayers] = useState<Player[]>([]);
   const [isFormVisible, setIsFormVisible] = useState(true);
@@ -310,7 +272,7 @@ const SetupScreen = ({ onStartGame, currentUser }: { onStartGame: (players: Play
       if (currentUser && players.length === 0) {
           setPlayers([{
               id: currentUser.uid,
-              name: currentUser.displayName.split(' ')[0], // First name only
+              name: currentUser.displayName.split(' ')[0],
               alcoholType: 'beer',
               sipsTaken: 0,
               sipsGiven: 0,
@@ -355,24 +317,21 @@ const SetupScreen = ({ onStartGame, currentUser }: { onStartGame: (players: Play
   
   const handleScanSuccess = async (uid: string) => {
       setIsScanning(false);
-      // Fetch user data from Firestore
       const friendProfile = await authService.getUserProfile(uid);
       if (friendProfile) {
-          // Check if already added
           if (players.find(p => p.uid === uid)) {
               alert("Ce joueur est déjà dans la partie !");
               return;
           }
-
           setPlayers([...players, {
               id: friendProfile.uid,
               name: friendProfile.displayName.split(' ')[0],
-              alcoholType: 'beer', // Default, maybe store pref in profile later
+              alcoholType: 'beer',
               sipsTaken: 0,
               sipsGiven: 0,
               simonFailures: 0,
               mathFailures: 0,
-              weight: 75, // Default
+              weight: 75,
               gender: 'male',
               uid: friendProfile.uid
           }]);
@@ -393,7 +352,6 @@ const SetupScreen = ({ onStartGame, currentUser }: { onStartGame: (players: Play
     <div className="flex flex-col h-full p-6 overflow-y-auto pb-20">
       <h2 className="text-3xl font-bold mb-6">Configuration</h2>
       
-      {/* Settings Grid */}
       <div className="grid grid-cols-2 gap-4 mb-6 shrink-0">
         <div className="glass-panel p-4 rounded-2xl flex flex-col">
           <label className="text-xs text-gray-400 mb-2">Mode</label>
@@ -403,29 +361,13 @@ const SetupScreen = ({ onStartGame, currentUser }: { onStartGame: (players: Play
           </div>
         </div>
         
-        {/* Mini-Jeu Selector */}
         <div className="glass-panel p-4 rounded-2xl flex flex-col">
           <label className="text-xs text-gray-400 mb-2">Mini-Jeu</label>
           <div className="flex flex-col gap-1">
-             <button 
-                onClick={() => setMiniGame('none')} 
-                className={`w-full py-1 rounded-lg text-xs transition-colors ${!settings.simonEnabled && !settings.mathEnabled ? 'bg-white text-black' : 'bg-white/10'}`}
-             >
-                Aucun
-             </button>
+             <button onClick={() => setMiniGame('none')} className={`w-full py-1 rounded-lg text-xs transition-colors ${!settings.simonEnabled && !settings.mathEnabled ? 'bg-white text-black' : 'bg-white/10'}`}>Aucun</button>
              <div className="flex gap-1">
-                <button 
-                    onClick={() => setMiniGame('simon')} 
-                    className={`flex-1 py-1 rounded-lg text-xs transition-colors ${settings.simonEnabled ? 'bg-green-500 text-white' : 'bg-white/10'}`}
-                >
-                    Simon
-                </button>
-                <button 
-                    onClick={() => setMiniGame('math')} 
-                    className={`flex-1 py-1 rounded-lg text-xs transition-colors ${settings.mathEnabled ? 'bg-blue-500 text-white' : 'bg-white/10'}`}
-                >
-                    Calcul
-                </button>
+                <button onClick={() => setMiniGame('simon')} className={`flex-1 py-1 rounded-lg text-xs transition-colors ${settings.simonEnabled ? 'bg-green-500 text-white' : 'bg-white/10'}`}>Simon</button>
+                <button onClick={() => setMiniGame('math')} className={`flex-1 py-1 rounded-lg text-xs transition-colors ${settings.mathEnabled ? 'bg-blue-500 text-white' : 'bg-white/10'}`}>Calcul</button>
              </div>
           </div>
         </div>
@@ -445,17 +387,11 @@ const SetupScreen = ({ onStartGame, currentUser }: { onStartGame: (players: Play
         )}
       </div>
 
-      {/* Players Section - Masqué en mode Rapide */}
       {settings.mode !== 'quick' && (
           <div className="flex-1 glass-panel rounded-2xl p-4 mb-4 overflow-hidden flex flex-col min-h-0">
             <div className="flex justify-between items-center mb-3">
                 <h3 className="text-lg font-bold">Joueurs ({players.length})</h3>
-                <button 
-                    onClick={() => setIsFormVisible(!isFormVisible)}
-                    className="text-xs px-3 py-1 bg-white/10 rounded-full"
-                >
-                    {isFormVisible ? 'Masquer Ajout' : 'Ajouter Joueur'}
-                </button>
+                <button onClick={() => setIsFormVisible(!isFormVisible)} className="text-xs px-3 py-1 bg-white/10 rounded-full">{isFormVisible ? 'Masquer Ajout' : 'Ajouter Joueur'}</button>
             </div>
 
             <div className={`overflow-y-auto space-y-2 mb-4 transition-all ${isFormVisible ? 'flex-1' : 'h-full'}`}>
@@ -476,19 +412,9 @@ const SetupScreen = ({ onStartGame, currentUser }: { onStartGame: (players: Play
             
             {isFormVisible && (
                 <div className="bg-black/20 p-3 rounded-xl space-y-2 shrink-0 animate-fade-in">
-                    <input 
-                        type="text" 
-                        value={newName}
-                        onChange={(e) => setNewName(e.target.value)}
-                        placeholder="Nom du joueur"
-                        className="w-full bg-white/10 border border-white/20 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-purple-500 placeholder-white/30"
-                    />
+                    <input type="text" value={newName} onChange={(e) => setNewName(e.target.value)} placeholder="Nom du joueur" className="w-full bg-white/10 border border-white/20 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-purple-500 placeholder-white/30" />
                     <div className="flex gap-2">
-                        <select 
-                            value={newAlcohol}
-                            onChange={(e) => setNewAlcohol(e.target.value as AlcoholType)}
-                            className="flex-1 bg-white/10 border border-white/20 rounded-lg px-2 py-2 text-xs focus:outline-none"
-                        >
+                        <select value={newAlcohol} onChange={(e) => setNewAlcohol(e.target.value as AlcoholType)} className="flex-1 bg-white/10 border border-white/20 rounded-lg px-2 py-2 text-xs focus:outline-none">
                             {Object.entries(alcoholLabels).map(([key, label]) => (
                                 <option key={key} value={key} className="bg-gray-900 text-white">{label}</option>
                             ))}
@@ -526,7 +452,7 @@ const SetupScreen = ({ onStartGame, currentUser }: { onStartGame: (players: Play
   );
 };
 
-// 3. GAME SCREEN
+// 7. GAME SCREEN
 const GameScreen = ({ players, settings, onEndGame }: { players: Player[], settings: GameSettings, onEndGame: (finalPlayers: Player[]) => void }) => {
     const [gameState, setGameState] = useState<GameState>({
         currentCard: null,
@@ -546,11 +472,7 @@ const GameScreen = ({ players, settings, onEndGame }: { players: Player[], setti
     const [showMath, setShowMath] = useState(false);
     const [notification, setNotification] = useState<string | null>(null);
     const [showTurnAnnouncement, setShowTurnAnnouncement] = useState(false);
-    
-    // Quit confirmation modal state
     const [showQuitConfirm, setShowQuitConfirm] = useState(false);
-    
-    // Distribution state for visual feedback
     const [distribution, setDistribution] = useState<Record<string, number>>({});
     const [sipsToDistribute, setSipsToDistribute] = useState(0);
 
@@ -582,7 +504,6 @@ const GameScreen = ({ players, settings, onEndGame }: { players: Player[], setti
         }
 
         const newPlayers = [...localPlayers];
-        
         updates.forEach(upd => {
             const idx = newPlayers.findIndex(p => p.id === upd.targetId);
             if (idx !== -1) newPlayers[idx].sipsTaken += upd.sips;
@@ -812,25 +733,14 @@ const GameScreen = ({ players, settings, onEndGame }: { players: Player[], setti
                 </div>
             )}
 
-            {/* QUIT CONFIRMATION MODAL - High Z-Index */}
             {showQuitConfirm && (
                 <div className="fixed inset-0 z-[60] bg-black/80 backdrop-blur-md flex items-center justify-center p-6 animate-fade-in">
                     <div className="bg-gray-900 border border-red-500/50 rounded-2xl p-8 w-full max-w-sm shadow-2xl text-center">
                         <h3 className="text-2xl font-black text-white mb-4">Abandonner ?</h3>
                         <p className="text-gray-400 mb-8">La partie se terminera et les statistiques seront enregistrées.</p>
                         <div className="flex gap-4">
-                            <button 
-                                onClick={() => setShowQuitConfirm(false)} 
-                                className="flex-1 py-3 bg-white/10 rounded-xl font-bold"
-                            >
-                                NON
-                            </button>
-                            <button 
-                                onClick={() => { setShowQuitConfirm(false); onEndGame(localPlayers); }} 
-                                className="flex-1 py-3 bg-red-600 hover:bg-red-500 rounded-xl font-bold text-white shadow-lg shadow-red-900/50"
-                            >
-                                OUI
-                            </button>
+                            <button onClick={() => setShowQuitConfirm(false)} className="flex-1 py-3 bg-white/10 rounded-xl font-bold">NON</button>
+                            <button onClick={() => { setShowQuitConfirm(false); onEndGame(localPlayers); }} className="flex-1 py-3 bg-red-600 hover:bg-red-500 rounded-xl font-bold text-white shadow-lg shadow-red-900/50">OUI</button>
                         </div>
                     </div>
                 </div>
@@ -849,7 +759,6 @@ const GameScreen = ({ players, settings, onEndGame }: { players: Player[], setti
                 </div>
             )}
 
-            {/* Header */}
             <div className="flex justify-between items-center mb-6 relative z-30 w-full">
                 {!isQuickMode && (
                     <div className={`flex flex-col items-start transition-all duration-700 transform ${showTurnAnnouncement ? 'opacity-0 -translate-x-10' : 'opacity-100 translate-x-0'}`}>
@@ -864,17 +773,11 @@ const GameScreen = ({ players, settings, onEndGame }: { players: Player[], setti
                 )}
                 {isQuickMode && <div></div>}
 
-                <button 
-                    onClick={() => setShowQuitConfirm(true)} 
-                    className="px-4 py-2 bg-red-500/10 border border-red-500/20 rounded-xl text-xs font-bold text-red-300 active:scale-95 transition-all hover:bg-red-500/20 backdrop-blur-md cursor-pointer pointer-events-auto"
-                >
-                    QUITTER
-                </button>
+                <button onClick={() => setShowQuitConfirm(true)} className="px-4 py-2 bg-red-500/10 border border-red-500/20 rounded-xl text-xs font-bold text-red-300 active:scale-95 transition-all hover:bg-red-500/20 backdrop-blur-md cursor-pointer pointer-events-auto">QUITTER</button>
             </div>
 
             <ActiveRulesSidebar rules={gameState.activeRules} players={localPlayers} onTriggerRule={handleSidebarRuleTrigger} />
 
-            {/* Game Area */}
             <div className="flex-1 flex flex-col items-center justify-center relative">
                 {gameState.pendingAction && gameState.pendingAction.type !== 'ace_check' && gameState.pendingAction.type !== 'math_penalty' && (
                     <div className="absolute inset-0 z-20 bg-black/60 backdrop-blur-sm rounded-2xl flex flex-col items-center justify-center p-4 pointer-events-none">
@@ -906,10 +809,7 @@ const GameScreen = ({ players, settings, onEndGame }: { players: Player[], setti
                             onClick={handleCardClick} 
                         />
                     ) : (
-                         <div 
-                            onClick={handleCardClick}
-                            className="w-64 h-96 rounded-2xl bg-gradient-to-br from-indigo-900 to-black border-2 border-white/20 shadow-2xl flex items-center justify-center cursor-pointer animate-pulse hover:scale-105 transition-transform"
-                         >
+                         <div onClick={handleCardClick} className="w-64 h-96 rounded-2xl bg-gradient-to-br from-indigo-900 to-black border-2 border-white/20 shadow-2xl flex items-center justify-center cursor-pointer animate-pulse hover:scale-105 transition-transform">
                              <div className="text-center">
                                  <span className="text-4xl block mb-2">🃏</span>
                                  <span className="text-sm text-gray-400 font-medium">Tirer une carte</span>
@@ -968,7 +868,7 @@ const GameScreen = ({ players, settings, onEndGame }: { players: Player[], setti
     );
 };
 
-// 4. END SCREEN
+// 8. END SCREEN
 const EndScreen = ({ players, settings, onRestart }: { players: Player[], settings: GameSettings, onRestart: () => void }) => {
     useEffect(() => {
         if(players.length > 0) dbService.saveGameSession(players, settings);
@@ -1063,24 +963,27 @@ export default function App() {
   const [currentUser, setCurrentUser] = useState<DrinkosaurProfile | null>(null);
   const [authLoading, setAuthLoading] = useState(true);
 
-  // Initialize Auth
+  // Initialisation Authentification
   useEffect(() => {
     // Écouteur de changement d'état d'authentification (Persistance de session)
     const unsubscribe = authService.subscribeAuth(async (user) => {
-        setAuthLoading(false); // Auth check finished
+        setAuthLoading(false); // On a fini de charger l'état initial
+        
         if (user) {
             if (!user.isAnonymous) {
-                // L'utilisateur est connecté via Google : on récupère son profil
+                // Utilisateur Google connecté
                 const profile = await authService.getUserProfile(user.uid);
                 setCurrentUser(profile);
             } else {
-                // L'utilisateur est anonyme : on considère qu'il n'est pas "connecté" au sens profil
+                // Utilisateur Anonyme
+                // On ne considère pas cela comme une "session active" pour l'affichage du profil
                 setCurrentUser(null);
             }
         } else {
-            // Aucun utilisateur (ni anonyme, ni Google) : on connecte en anonyme pour le jeu
-            // MAIS on ne le fait que si on est sur d'avoir fini de charger
-            authService.loginAnonymous().catch(console.warn);
+            // Aucun utilisateur connecté (ni anonyme, ni Google)
+            // IMPORTANT : On NE connecte PAS automatiquement en anonyme ici.
+            // On laisse l'utilisateur "déconnecté" pour permettre la restauration de session Google si nécessaire
+            setCurrentUser(null);
         }
     });
 
@@ -1089,10 +992,18 @@ export default function App() {
   }, []);
 
   const handleGoogleLogin = async () => {
+      // Login via Popup
       const profile = await authService.loginGoogle();
-      if (profile) {
-          setCurrentUser(profile);
+      // On ne set pas manuellement le state ici, on laisse le listener subscribeAuth s'en charger
+      // pour éviter les conflits d'état.
+  };
+
+  const handleStartGame = async () => {
+      // C'est seulement ici, au clic sur "Jouer", qu'on crée un compte anonyme si nécessaire
+      if (!auth?.currentUser) {
+          await authService.loginAnonymous();
       }
+      setScreen('setup');
   };
 
   if (authLoading) {
@@ -1114,7 +1025,13 @@ export default function App() {
           onLogin={handleGoogleLogin}
       />
       
-      {screen === 'home' && <HomeScreen onStart={() => setScreen('setup')} onOpenProfile={() => setShowProfile(true)} currentUser={currentUser} />}
+      {screen === 'home' && (
+          <HomeScreen 
+            onStart={handleStartGame} 
+            onOpenProfile={() => setShowProfile(true)} 
+            currentUser={currentUser} 
+          />
+      )}
       {screen === 'setup' && (
         <SetupScreen onStartGame={(players, settings) => {
             setGameData({ players, settings });

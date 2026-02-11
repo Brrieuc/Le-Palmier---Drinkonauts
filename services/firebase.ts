@@ -18,6 +18,7 @@ let app;
 let auth: Auth | undefined;
 let db: Firestore | undefined;
 
+// Initialisation unique et robuste
 try {
   if (!getApps().length) {
     app = initializeApp(firebaseConfig);
@@ -25,7 +26,7 @@ try {
     app = getApp();
   }
 } catch (e) {
-  console.warn("Firebase initialization failed:", e);
+  console.error("Firebase initialization failed:", e);
 }
 
 try {
@@ -33,7 +34,7 @@ try {
     auth = getAuth(app);
     db = getFirestore(app);
     
-    // FORCER LA PERSISTANCE LOCALE
+    // Définir la persistance une seule fois au démarrage
     if (auth) {
         setPersistence(auth, browserLocalPersistence).catch((error) => {
             console.error("Auth Persistence Error:", error);
@@ -41,14 +42,14 @@ try {
     }
   }
 } catch (e) {
-  console.warn("Firebase service registration failed:", e);
+  console.error("Firebase service registration failed:", e);
 }
 
 export const authService = {
   loginAnonymous: async () => {
     if (!auth) return null;
     try {
-      await setPersistence(auth, browserLocalPersistence);
+      // Pas besoin de redéfinir la persistance ici, c'est déjà fait globalement
       const userCredential = await signInAnonymously(auth);
       return userCredential.user;
     } catch (error) {
@@ -60,9 +61,6 @@ export const authService = {
   loginGoogle: async (): Promise<DrinkosaurProfile | null> => {
     if (!auth || !db) return null;
     try {
-      // S'assurer que la persistance est activée avant de se connecter
-      await setPersistence(auth, browserLocalPersistence);
-
       const provider = new GoogleAuthProvider();
       provider.setCustomParameters({
         prompt: 'select_account'
@@ -71,14 +69,13 @@ export const authService = {
       const result = await signInWithPopup(auth, provider);
       const user = result.user;
       
-      // Check if user profile exists in Firestore
+      // Récupération ou création du profil
       const userDocRef = doc(db, "users", user.uid);
       const userDoc = await getDoc(userDocRef);
       
       let profile: DrinkosaurProfile;
 
       if (!userDoc.exists()) {
-        // Create new profile
         profile = {
           uid: user.uid,
           displayName: user.displayName || "Joueur Anonyme",
@@ -98,10 +95,9 @@ export const authService = {
       }
       return profile;
     } catch (error: any) {
-      console.error("Google Auth Error Code:", error.code);
-      console.error("Google Auth Error Message:", error.message);
+      console.error("Google Auth Error:", error);
       if (error.code === 'auth/unauthorized-domain') {
-          alert("Domaine non autorisé. Ajoutez ce domaine (localhost ou vercel) dans la console Firebase > Authentication > Settings > Authorized Domains.");
+          alert("Erreur de domaine. Vérifiez la console Firebase.");
       }
       return null;
     }
@@ -132,7 +128,6 @@ export const dbService = {
   saveGameSession: async (players: Player[], settings: GameSettings) => {
     if (!db) return;
     try {
-      // 1. Save Session
       await addDoc(collection(db, "game_sessions"), {
         date: serverTimestamp(),
         settings,
@@ -143,7 +138,6 @@ export const dbService = {
         }))
       });
 
-      // 2. Update Cumulative Stats for Linked Players
       for (const p of players) {
         if (p.uid) {
            const userRef = doc(db, "users", p.uid);
