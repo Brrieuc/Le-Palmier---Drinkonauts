@@ -49,8 +49,9 @@ try {
 }
 
 // Helper robuste pour créer ou récupérer le profil utilisateur
+// GARANTIT un retour de profil même si Firestore échoue
 const ensureUserProfile = async (user: User): Promise<DrinkosaurProfile> => {
-    // Profil par défaut (fallback) si Firestore est inaccessible
+    // Profil par défaut (fallback) basé sur les données Google Auth
     const fallbackProfile: DrinkosaurProfile = {
         uid: user.uid,
         displayName: user.displayName || "Joueur",
@@ -62,7 +63,7 @@ const ensureUserProfile = async (user: User): Promise<DrinkosaurProfile> => {
             mathFailures: 0,
             sipsGiven: 0
         },
-        createdAt: Date.now() // Timestamp local au lieu de serverTimestamp pour le fallback
+        createdAt: Date.now() // Timestamp local pour le mode offline
     };
 
     if (!db) return fallbackProfile;
@@ -71,18 +72,26 @@ const ensureUserProfile = async (user: User): Promise<DrinkosaurProfile> => {
         const userDocRef = doc(db, "users", user.uid);
         const userDoc = await getDoc(userDocRef);
 
-        if (!userDoc.exists()) {
-            const newProfile = { 
-                ...fallbackProfile, 
-                createdAt: serverTimestamp() // On remet le serverTimestamp pour l'écriture
-            };
-            await setDoc(userDocRef, newProfile);
-            return fallbackProfile;
+        if (userDoc.exists()) {
+            return userDoc.data() as DrinkosaurProfile;
+        } else {
+            // Création du profil si inexistant
+            // On utilise un try/catch imbriqué pour l'écriture au cas où l'écriture échoue (offline strict)
+            try {
+                const newProfile = { 
+                    ...fallbackProfile, 
+                    createdAt: serverTimestamp() 
+                };
+                await setDoc(userDocRef, newProfile);
+                return fallbackProfile;
+            } catch (writeError) {
+                console.warn("Firestore write failed, returning local profile:", writeError);
+                return fallbackProfile;
+            }
         }
-        return userDoc.data() as DrinkosaurProfile;
-    } catch (error) {
-        console.warn("Firestore access failed (offline mode?), using local profile:", error);
-        // CRITICAL FIX: Return fallback profile instead of null on error
+    } catch (readError) {
+        console.warn("Firestore read failed (offline mode?), using local profile:", readError);
+        // CRITICAL FIX: Return fallback profile instead of throwing or returning null
         return fallbackProfile;
     }
 };
@@ -110,19 +119,6 @@ export const authService = {
       await signInWithRedirect(auth, provider);
     } catch (error: any) {
       console.error("Google Auth Redirect Error:", error);
-      if (error.code === 'auth/unauthorized-domain') {
-          alert("Erreur de domaine. Vérifiez la console Firebase.");
-      }
-    }
-  },
-
-  // Nouvelle fonction pour vérifier explicitement le résultat de redirection
-  checkRedirect: async () => {
-    if (!auth) return;
-    try {
-        await getRedirectResult(auth);
-    } catch (error) {
-        console.error("Redirect check error:", error);
     }
   },
 

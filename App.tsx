@@ -968,28 +968,33 @@ export default function App() {
 
   // Initialisation Authentification
   useEffect(() => {
-    // Vérification initiale de la redirection
-    authService.checkRedirect();
-
     // Écouteur de changement d'état d'authentification (Persistance de session)
     const unsubscribe = authService.subscribeAuth(async (user) => {
-        setAuthLoading(false); // On a fini de charger l'état initial
+        // IMPORTANT: On ne met PAS setAuthLoading(false) ici immédiatement.
+        // On attend de savoir si on peut récupérer le profil.
         
         if (user) {
             if (!user.isAnonymous) {
                 // Utilisateur Google connecté
-                // ensureUserProfile est maintenant "fail-safe" et renverra un profil même si Firestore est HS
-                const profile = await authService.ensureUserProfile(user);
-                setCurrentUser(profile);
+                try {
+                    const profile = await authService.ensureUserProfile(user);
+                    setCurrentUser(profile);
+                } catch (error) {
+                    console.error("Critical Profile Error", error);
+                    // Fallback ultime : on ne connecte pas l'user visuellement mais on charge l'app
+                    setCurrentUser(null);
+                }
             } else {
-                // Utilisateur Anonyme
-                // On ne considère pas cela comme une "session active" pour l'affichage du profil
+                // Utilisateur Anonyme : pas de profil global, mais on charge l'app
                 setCurrentUser(null);
             }
         } else {
-            // Aucun utilisateur connecté (ni anonyme, ni Google)
+            // Aucun utilisateur connecté
             setCurrentUser(null);
         }
+        
+        // C'est SEULEMENT maintenant qu'on a fini toute la logique d'auth
+        setAuthLoading(false);
     });
 
     // Nettoyage de l'écouteur au démontage
