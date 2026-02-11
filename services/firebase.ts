@@ -1,5 +1,5 @@
 import { initializeApp, getApps, getApp } from "firebase/app";
-import { getAuth, signInAnonymously, GoogleAuthProvider, signInWithPopup, Auth, User, onAuthStateChanged } from "firebase/auth";
+import { getAuth, signInAnonymously, GoogleAuthProvider, signInWithPopup, Auth, User, onAuthStateChanged, setPersistence, browserLocalPersistence } from "firebase/auth";
 import { getFirestore, doc, setDoc, getDoc, updateDoc, Firestore, collection, addDoc, serverTimestamp, increment } from "firebase/firestore";
 import { Player, GameSettings, DrinkosaurProfile } from "../types";
 
@@ -32,6 +32,13 @@ try {
   if (app) {
     auth = getAuth(app);
     db = getFirestore(app);
+    
+    // FORCER LA PERSISTANCE LOCALE
+    if (auth) {
+        setPersistence(auth, browserLocalPersistence).catch((error) => {
+            console.error("Auth Persistence Error:", error);
+        });
+    }
   }
 } catch (e) {
   console.warn("Firebase service registration failed:", e);
@@ -41,6 +48,7 @@ export const authService = {
   loginAnonymous: async () => {
     if (!auth) return null;
     try {
+      await setPersistence(auth, browserLocalPersistence);
       const userCredential = await signInAnonymously(auth);
       return userCredential.user;
     } catch (error) {
@@ -52,8 +60,10 @@ export const authService = {
   loginGoogle: async (): Promise<DrinkosaurProfile | null> => {
     if (!auth || !db) return null;
     try {
+      // S'assurer que la persistance est activée avant de se connecter
+      await setPersistence(auth, browserLocalPersistence);
+
       const provider = new GoogleAuthProvider();
-      // Ajout de scopes optionnels si besoin dans le futur
       provider.setCustomParameters({
         prompt: 'select_account'
       });

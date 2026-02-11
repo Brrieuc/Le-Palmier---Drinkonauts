@@ -1061,11 +1061,13 @@ export default function App() {
   // Drinkosaur Identity State
   const [showProfile, setShowProfile] = useState(false);
   const [currentUser, setCurrentUser] = useState<DrinkosaurProfile | null>(null);
+  const [authLoading, setAuthLoading] = useState(true);
 
   // Initialize Auth
   useEffect(() => {
     // Écouteur de changement d'état d'authentification (Persistance de session)
     const unsubscribe = authService.subscribeAuth(async (user) => {
+        setAuthLoading(false); // Auth check finished
         if (user) {
             if (!user.isAnonymous) {
                 // L'utilisateur est connecté via Google : on récupère son profil
@@ -1077,6 +1079,7 @@ export default function App() {
             }
         } else {
             // Aucun utilisateur (ni anonyme, ni Google) : on connecte en anonyme pour le jeu
+            // MAIS on ne le fait que si on est sur d'avoir fini de charger
             authService.loginAnonymous().catch(console.warn);
         }
     });
@@ -1091,6 +1094,16 @@ export default function App() {
           setCurrentUser(profile);
       }
   };
+
+  if (authLoading) {
+      return (
+          <Layout>
+              <div className="flex items-center justify-center h-full">
+                  <div className="w-12 h-12 border-4 border-purple-500 border-t-transparent rounded-full animate-spin"></div>
+              </div>
+          </Layout>
+      );
+  }
 
   return (
     <Layout>
