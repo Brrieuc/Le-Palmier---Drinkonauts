@@ -1064,12 +1064,25 @@ export default function App() {
 
   // Initialize Auth
   useEffect(() => {
-    authService.loginAnonymous().catch(console.warn);
-    const auth = authService.getCurrentUser();
-    if (auth && !auth.isAnonymous) {
-        // If not anonymous (already Google logged in previously)
-        authService.getUserProfile(auth.uid).then(setCurrentUser);
-    }
+    // Écouteur de changement d'état d'authentification (Persistance de session)
+    const unsubscribe = authService.subscribeAuth(async (user) => {
+        if (user) {
+            if (!user.isAnonymous) {
+                // L'utilisateur est connecté via Google : on récupère son profil
+                const profile = await authService.getUserProfile(user.uid);
+                setCurrentUser(profile);
+            } else {
+                // L'utilisateur est anonyme : on considère qu'il n'est pas "connecté" au sens profil
+                setCurrentUser(null);
+            }
+        } else {
+            // Aucun utilisateur (ni anonyme, ni Google) : on connecte en anonyme pour le jeu
+            authService.loginAnonymous().catch(console.warn);
+        }
+    });
+
+    // Nettoyage de l'écouteur au démontage
+    return () => unsubscribe();
   }, []);
 
   const handleGoogleLogin = async () => {

@@ -1,5 +1,5 @@
 import { initializeApp, getApps, getApp } from "firebase/app";
-import { getAuth, signInAnonymously, GoogleAuthProvider, signInWithPopup, Auth, User } from "firebase/auth";
+import { getAuth, signInAnonymously, GoogleAuthProvider, signInWithPopup, Auth, User, onAuthStateChanged } from "firebase/auth";
 import { getFirestore, doc, setDoc, getDoc, updateDoc, Firestore, collection, addDoc, serverTimestamp, increment } from "firebase/firestore";
 import { Player, GameSettings, DrinkosaurProfile } from "../types";
 
@@ -98,6 +98,11 @@ export const authService = {
   },
 
   getCurrentUser: () => auth?.currentUser,
+
+  subscribeAuth: (callback: (user: User | null) => void) => {
+    if (!auth) return () => {};
+    return onAuthStateChanged(auth, callback);
+  },
   
   getUserProfile: async (uid: string): Promise<DrinkosaurProfile | null> => {
     if (!db) return null;
@@ -132,8 +137,6 @@ export const dbService = {
       for (const p of players) {
         if (p.uid) {
            const userRef = doc(db, "users", p.uid);
-           // On utilise updateDoc sans condition préalable car on suppose que le profil existe (créé au login)
-           // Cependant, par sécurité, on pourrait vérifier. Ici on fait confiance à l'auth flow.
            try {
                await updateDoc(userRef, {
                  "stats.totalSips": increment(p.sipsTaken),
