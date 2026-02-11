@@ -3,11 +3,15 @@ import { getAuth, signInAnonymously, GoogleAuthProvider, signInWithPopup, Auth, 
 import { getFirestore, doc, setDoc, getDoc, updateDoc, Firestore, collection, addDoc, serverTimestamp, increment } from "firebase/firestore";
 import { Player, GameSettings, DrinkosaurProfile } from "../types";
 
+// Configuration mise à jour pour le projet 'drinkonauts'
 const firebaseConfig = {
-  apiKey: "AIzaSyDVDFY2AHllINoyUMwABQp1TBonUOKaeKE",
-  authDomain: "tacklor-mark.firebaseapp.com",
-  projectId: "tacklor-mark",
-  appId: "1:629798377570:web:e68f69fb0f104e484b593b"
+  apiKey: "AIzaSyA3j394cOpuBkCyCnI9G4u9s3tM1txqOvU",
+  authDomain: "drinkonauts.firebaseapp.com",
+  projectId: "drinkonauts",
+  storageBucket: "drinkonauts.firebasestorage.app",
+  messagingSenderId: "663570393503",
+  appId: "1:663570393503:web:3ac944de2b8d0b049ff5aa",
+  measurementId: "G-PVK24591PW"
 };
 
 let app;
@@ -49,6 +53,11 @@ export const authService = {
     if (!auth || !db) return null;
     try {
       const provider = new GoogleAuthProvider();
+      // Ajout de scopes optionnels si besoin dans le futur
+      provider.setCustomParameters({
+        prompt: 'select_account'
+      });
+      
       const result = await signInWithPopup(auth, provider);
       const user = result.user;
       
@@ -78,8 +87,12 @@ export const authService = {
         profile = userDoc.data() as DrinkosaurProfile;
       }
       return profile;
-    } catch (error) {
-      console.error("Google Auth Error:", error);
+    } catch (error: any) {
+      console.error("Google Auth Error Code:", error.code);
+      console.error("Google Auth Error Message:", error.message);
+      if (error.code === 'auth/unauthorized-domain') {
+          alert("Domaine non autorisé. Ajoutez ce domaine (localhost ou vercel) dans la console Firebase > Authentication > Settings > Authorized Domains.");
+      }
       return null;
     }
   },
@@ -119,13 +132,19 @@ export const dbService = {
       for (const p of players) {
         if (p.uid) {
            const userRef = doc(db, "users", p.uid);
-           await updateDoc(userRef, {
-             "stats.totalSips": increment(p.sipsTaken),
-             "stats.totalGames": increment(1),
-             "stats.simonFailures": increment(p.simonFailures),
-             "stats.mathFailures": increment(p.mathFailures || 0),
-             "stats.sipsGiven": increment(p.sipsGiven)
-           });
+           // On utilise updateDoc sans condition préalable car on suppose que le profil existe (créé au login)
+           // Cependant, par sécurité, on pourrait vérifier. Ici on fait confiance à l'auth flow.
+           try {
+               await updateDoc(userRef, {
+                 "stats.totalSips": increment(p.sipsTaken),
+                 "stats.totalGames": increment(1),
+                 "stats.simonFailures": increment(p.simonFailures),
+                 "stats.mathFailures": increment(p.mathFailures || 0),
+                 "stats.sipsGiven": increment(p.sipsGiven)
+               });
+           } catch (updateError) {
+               console.warn(`Could not update stats for user ${p.uid}`, updateError);
+           }
         }
       }
     } catch (e) {
