@@ -972,7 +972,9 @@ export default function App() {
         if (user) {
             if (!user.isAnonymous) {
                 // Utilisateur Google connecté
-                const profile = await authService.getUserProfile(user.uid);
+                // On s'assure d'abord que le profil existe dans Firestore (indispensable après un redirect)
+                // C'est ici que la magie opère pour la création automatique après redirection
+                const profile = await authService.ensureUserProfile(user);
                 setCurrentUser(profile);
             } else {
                 // Utilisateur Anonyme
@@ -992,10 +994,9 @@ export default function App() {
   }, []);
 
   const handleGoogleLogin = async () => {
-      // Login via Popup
-      const profile = await authService.loginGoogle();
-      // On ne set pas manuellement le state ici, on laisse le listener subscribeAuth s'en charger
-      // pour éviter les conflits d'état.
+      // Login via Redirect pour mobile
+      // La fonction est void, le résultat est traité par le listener subscribeAuth au rechargement
+      await authService.loginGoogle();
   };
 
   const handleStartGame = async () => {

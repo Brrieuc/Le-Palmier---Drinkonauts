@@ -1,6 +1,6 @@
 import { initializeApp, getApps, getApp } from "firebase/app";
-import { getAuth, signInAnonymously, GoogleAuthProvider, signInWithPopup, Auth, User, onAuthStateChanged, setPersistence, browserLocalPersistence } from "firebase/auth";
-import { getFirestore, doc, setDoc, getDoc, updateDoc, Firestore, collection, addDoc, serverTimestamp, increment } from "firebase/firestore";
+import { getAuth, signInAnonymously, GoogleAuthProvider, signInWithRedirect, Auth, User, onAuthStateChanged, setPersistence, browserLocalPersistence } from "firebase/auth";
+import { initializeFirestore, persistentLocalCache, persistentMultipleTabManager, doc, setDoc, getDoc, updateDoc, Firestore, collection, addDoc, serverTimestamp, increment } from "firebase/firestore";
 import { Player, GameSettings, DrinkosaurProfile } from "../types";
 
 // Configuration mise à jour pour le projet 'drinkonauts'
@@ -32,7 +32,10 @@ try {
 try {
   if (app) {
     auth = getAuth(app);
-    db = getFirestore(app);
+    // Utilisation de initializeFirestore pour mieux gérer la persistance et éviter les erreurs "Client Offline" immédiates
+    db = initializeFirestore(app, {
+      localCache: persistentLocalCache({ tabManager: persistentMultipleTabManager() })
+    });
     
     // Définir la persistance une seule fois au démarrage
     if (auth) {
@@ -45,11 +48,41 @@ try {
   console.error("Firebase service registration failed:", e);
 }
 
+// Helper pour créer le profil utilisateur s'il n'existe pas
+const ensureUserProfile = async (user: User): Promise<DrinkosaurProfile | null> => {
+    if (!db) return null;
+    try {
+        const userDocRef = doc(db, "users", user.uid);
+        const userDoc = await getDoc(userDocRef);
+
+        if (!userDoc.exists()) {
+            const newProfile: DrinkosaurProfile = {
+                uid: user.uid,
+                displayName: user.displayName || "Joueur Anonyme",
+                photoURL: user.photoURL,
+                stats: {
+                    totalSips: 0,
+                    totalGames: 0,
+                    simonFailures: 0,
+                    mathFailures: 0,
+                    sipsGiven: 0
+                },
+                createdAt: serverTimestamp()
+            };
+            await setDoc(userDocRef, newProfile);
+            return newProfile;
+        }
+        return userDoc.data() as DrinkosaurProfile;
+    } catch (error) {
+        console.error("Error ensuring user profile:", error);
+        return null;
+    }
+};
+
 export const authService = {
   loginAnonymous: async () => {
     if (!auth) return null;
     try {
-      // Pas besoin de redéfinir la persistance ici, c'est déjà fait globalement
       const userCredential = await signInAnonymously(auth);
       return userCredential.user;
     } catch (error) {
@@ -58,48 +91,22 @@ export const authService = {
     }
   },
   
-  loginGoogle: async (): Promise<DrinkosaurProfile | null> => {
-    if (!auth || !db) return null;
+  // Modifié pour utiliser signInWithRedirect
+  loginGoogle: async (): Promise<void> => {
+    if (!auth) return;
     try {
       const provider = new GoogleAuthProvider();
       provider.setCustomParameters({
         prompt: 'select_account'
       });
-      
-      const result = await signInWithPopup(auth, provider);
-      const user = result.user;
-      
-      // Récupération ou création du profil
-      const userDocRef = doc(db, "users", user.uid);
-      const userDoc = await getDoc(userDocRef);
-      
-      let profile: DrinkosaurProfile;
-
-      if (!userDoc.exists()) {
-        profile = {
-          uid: user.uid,
-          displayName: user.displayName || "Joueur Anonyme",
-          photoURL: user.photoURL,
-          stats: {
-            totalSips: 0,
-            totalGames: 0,
-            simonFailures: 0,
-            mathFailures: 0,
-            sipsGiven: 0
-          },
-          createdAt: serverTimestamp()
-        };
-        await setDoc(userDocRef, profile);
-      } else {
-        profile = userDoc.data() as DrinkosaurProfile;
-      }
-      return profile;
+      // Redirection au lieu de Popup pour éviter les blocages COOP/COEP et problèmes mobile
+      await signInWithRedirect(auth, provider);
+      // Le résultat sera traité au rechargement de la page via onAuthStateChanged
     } catch (error: any) {
-      console.error("Google Auth Error:", error);
+      console.error("Google Auth Redirect Error:", error);
       if (error.code === 'auth/unauthorized-domain') {
           alert("Erreur de domaine. Vérifiez la console Firebase.");
       }
-      return null;
     }
   },
 
@@ -121,7 +128,9 @@ export const authService = {
       console.error("Error fetching profile:", e);
       return null;
     }
-  }
+  },
+
+  ensureUserProfile // Exporté pour usage interne ou externe si besoin
 };
 
 export const dbService = {
