@@ -7,6 +7,7 @@
     <link rel="icon" href="https://blogger.googleusercontent.com/img/b/R29vZ2xl/AVvXsEh9vA7gqfKi_kCFn4ofzRAQ1AnJ2DDUsHjY2sxF5tGjlB7UilNBy5HCyH4GB84ow4kiX42DC1oKyTaUst2cCgO9JH-YoXsxlXObvKjbEYWBlU7TPvY4cgBOQii3k7Vostr4w1un99tMZiPSirstDUpcpXlie8kdtETMcwY6taR4216NBJdv1I6yOJUx3v0/s16000/logo%20palmier.png" />
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <script src="https://unpkg.com/html5-qrcode" type="text/javascript"></script>
     <script>
       tailwind.config = {
         theme: {
@@ -17,6 +18,7 @@
             animation: {
               'blob': 'blob 7s infinite',
               'flip': 'flip 0.6s forwards',
+              'shine': 'shine 2s infinite',
             },
             keyframes: {
               blob: {
@@ -25,6 +27,10 @@
                 '66%': { transform: 'translate(-20px, 20px) scale(0.9)' },
                 '100%': { transform: 'translate(0px, 0px) scale(1)' },
               },
+              shine: {
+                '0%': { transform: 'translateX(-100%)' },
+                '100%': { transform: 'translateX(100%)' }
+              }
             },
           },
         },
@@ -54,6 +60,16 @@
       .rotate-y-180 {
         transform: rotateY(180deg);
       }
+      /* ID Card Effects */
+      .id-card-shine {
+        background: linear-gradient(90deg, transparent, rgba(255,255,255,0.2), transparent);
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        transform: skewX(-20deg);
+      }
     </style>
   <script type="importmap">
 {
@@ -65,9 +81,10 @@
     "firebase/app": "https://www.gstatic.com/firebasejs/10.13.0/firebase-app.js",
     "firebase/auth": "https://www.gstatic.com/firebasejs/10.13.0/firebase-auth.js",
     "firebase/firestore": "https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore.js",
+    "react-qr-code": "https://esm.sh/react-qr-code@2.0.12",
+    "firebase/": "https://esm.sh/firebase@^12.9.0/",
     "react-dom/": "https://esm.sh/react-dom@^19.2.4/",
-    "react/": "https://esm.sh/react@^19.2.4/",
-    "firebase/": "https://esm.sh/firebase@^12.9.0/"
+    "react/": "https://esm.sh/react@^19.2.4/"
   }
 }
 </script>

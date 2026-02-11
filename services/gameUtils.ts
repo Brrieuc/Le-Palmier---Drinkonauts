@@ -51,32 +51,68 @@ export const getDifficultyMultiplier = (diff: Difficulty): number => {
 };
 
 export const getAlcoholCoeff = (type: AlcoholType): number => {
-  // Representation of "strength" relative to a standard beer unit roughly
   switch (type) {
     case 'beer': return 1.0;
-    case 'wine': return 1.4; // Stronger than beer
+    case 'wine': return 1.4;
     case 'mix_weak': return 1.5;
     case 'mix_strong': return 2.5;
-    case 'hard': return 4.0; // Shots
+    case 'hard': return 4.0;
   }
 };
 
-export const calculateWidmark = (player: Player): string => {
-    // Very simplified estimation based on sips
-    // Standard sip ~ 10-15ml.
-    // 1 Standard drink ~ 10g alcohol.
-    // Let's assume 1 sip of beer = 1/10th of a unit.
-    // Adjusted by alcohol type coefficient.
+export const getAlcoholIcon = (type: AlcoholType): string => {
+  switch (type) {
+    case 'beer': return '🍺';
+    case 'wine': return '🍷';
+    case 'mix_weak': return '🍹';
+    case 'mix_strong': return '🥃';
+    case 'hard': return '🧪';
+    default: return '🍺';
+  }
+};
 
+/**
+ * Returns how many "points" it costs to give 1 sip to this player.
+ * E.g., giving 1 sip to a Vodka drinker costs 4 points from the distribution pool.
+ */
+export const getDistributionCost = (type: AlcoholType): number => {
+  switch (type) {
+    case 'beer': return 1;
+    case 'wine': return 2;
+    case 'mix_weak': return 2;
+    case 'mix_strong': return 3;
+    case 'hard': return 4;
+  }
+};
+
+/**
+ * Calculates how many sips a player should take based on base penalty, difficulty, and alcohol type.
+ * Stronger alcohol = fewer sips.
+ * Higher difficulty = more sips.
+ */
+export const calculateDynamicSips = (baseSips: number, difficulty: Difficulty, alcoholType: AlcoholType): number => {
+  const diffMult = getDifficultyMultiplier(difficulty);
+  const cost = getDistributionCost(alcoholType);
+  
+  // Basic formula: (Base * Difficulty) / AlcoholStrengthFactor
+  // We use the 'cost' as a proxy for strength. 
+  // If cost is 4 (Hard liquor), we divide the sips by roughly that amount, but kept fun (min 1).
+  
+  let result = (baseSips * diffMult);
+  
+  // Balancing: Reduce sips for strong alcohol
+  if (cost > 1) {
+    result = result / (cost * 0.7); // 0.7 makes it slightly punishing still
+  }
+  
+  return Math.max(1, Math.round(result));
+};
+
+export const calculateWidmark = (player: Player): string => {
     const baseUnitPerSip = 0.1;
     const totalUnits = player.sipsTaken * baseUnitPerSip * getAlcoholCoeff(player.alcoholType);
-    
-    // Default weight/gender if not provided (70kg male average)
     const weight = player.weight || 70;
     const r = player.gender === 'female' ? 0.6 : 0.7;
-
-    // Widmark: (Alcohol in grams) / (Weight in kg * r)
-    // 1 Unit ~ 10g
     const grams = totalUnits * 10;
     const permille = grams / (weight * r);
 
