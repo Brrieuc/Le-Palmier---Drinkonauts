@@ -1,5 +1,5 @@
 import { initializeApp, getApps, getApp } from "firebase/app";
-import { getAuth, signInAnonymously, GoogleAuthProvider, signInWithRedirect, Auth, User, onAuthStateChanged, setPersistence, browserLocalPersistence } from "firebase/auth";
+import { getAuth, signInAnonymously, GoogleAuthProvider, signInWithRedirect, getRedirectResult, Auth, User, onAuthStateChanged, setPersistence, browserLocalPersistence } from "firebase/auth";
 import { initializeFirestore, persistentLocalCache, persistentMultipleTabManager, doc, setDoc, getDoc, updateDoc, Firestore, collection, addDoc, serverTimestamp, increment } from "firebase/firestore";
 import { Player, GameSettings, DrinkosaurProfile } from "../types";
 
@@ -48,34 +48,42 @@ try {
   console.error("Firebase service registration failed:", e);
 }
 
-// Helper pour créer le profil utilisateur s'il n'existe pas
-const ensureUserProfile = async (user: User): Promise<DrinkosaurProfile | null> => {
-    if (!db) return null;
+// Helper robuste pour créer ou récupérer le profil utilisateur
+const ensureUserProfile = async (user: User): Promise<DrinkosaurProfile> => {
+    // Profil par défaut (fallback) si Firestore est inaccessible
+    const fallbackProfile: DrinkosaurProfile = {
+        uid: user.uid,
+        displayName: user.displayName || "Joueur",
+        photoURL: user.photoURL,
+        stats: {
+            totalSips: 0,
+            totalGames: 0,
+            simonFailures: 0,
+            mathFailures: 0,
+            sipsGiven: 0
+        },
+        createdAt: Date.now() // Timestamp local au lieu de serverTimestamp pour le fallback
+    };
+
+    if (!db) return fallbackProfile;
+
     try {
         const userDocRef = doc(db, "users", user.uid);
         const userDoc = await getDoc(userDocRef);
 
         if (!userDoc.exists()) {
-            const newProfile: DrinkosaurProfile = {
-                uid: user.uid,
-                displayName: user.displayName || "Joueur Anonyme",
-                photoURL: user.photoURL,
-                stats: {
-                    totalSips: 0,
-                    totalGames: 0,
-                    simonFailures: 0,
-                    mathFailures: 0,
-                    sipsGiven: 0
-                },
-                createdAt: serverTimestamp()
+            const newProfile = { 
+                ...fallbackProfile, 
+                createdAt: serverTimestamp() // On remet le serverTimestamp pour l'écriture
             };
             await setDoc(userDocRef, newProfile);
-            return newProfile;
+            return fallbackProfile;
         }
         return userDoc.data() as DrinkosaurProfile;
     } catch (error) {
-        console.error("Error ensuring user profile:", error);
-        return null;
+        console.warn("Firestore access failed (offline mode?), using local profile:", error);
+        // CRITICAL FIX: Return fallback profile instead of null on error
+        return fallbackProfile;
     }
 };
 
@@ -99,14 +107,22 @@ export const authService = {
       provider.setCustomParameters({
         prompt: 'select_account'
       });
-      // Redirection au lieu de Popup pour éviter les blocages COOP/COEP et problèmes mobile
       await signInWithRedirect(auth, provider);
-      // Le résultat sera traité au rechargement de la page via onAuthStateChanged
     } catch (error: any) {
       console.error("Google Auth Redirect Error:", error);
       if (error.code === 'auth/unauthorized-domain') {
           alert("Erreur de domaine. Vérifiez la console Firebase.");
       }
+    }
+  },
+
+  // Nouvelle fonction pour vérifier explicitement le résultat de redirection
+  checkRedirect: async () => {
+    if (!auth) return;
+    try {
+        await getRedirectResult(auth);
+    } catch (error) {
+        console.error("Redirect check error:", error);
     }
   },
 

@@ -452,6 +452,9 @@ const SetupScreen = ({ onStartGame, currentUser }: { onStartGame: (players: Play
   );
 };
 
+// ... (Other components remain unchanged - GameScreen, EndScreen)
+// Re-adding GameScreen and EndScreen to ensure file completeness
+
 // 7. GAME SCREEN
 const GameScreen = ({ players, settings, onEndGame }: { players: Player[], settings: GameSettings, onEndGame: (finalPlayers: Player[]) => void }) => {
     const [gameState, setGameState] = useState<GameState>({
@@ -965,6 +968,9 @@ export default function App() {
 
   // Initialisation Authentification
   useEffect(() => {
+    // Vérification initiale de la redirection
+    authService.checkRedirect();
+
     // Écouteur de changement d'état d'authentification (Persistance de session)
     const unsubscribe = authService.subscribeAuth(async (user) => {
         setAuthLoading(false); // On a fini de charger l'état initial
@@ -972,8 +978,7 @@ export default function App() {
         if (user) {
             if (!user.isAnonymous) {
                 // Utilisateur Google connecté
-                // On s'assure d'abord que le profil existe dans Firestore (indispensable après un redirect)
-                // C'est ici que la magie opère pour la création automatique après redirection
+                // ensureUserProfile est maintenant "fail-safe" et renverra un profil même si Firestore est HS
                 const profile = await authService.ensureUserProfile(user);
                 setCurrentUser(profile);
             } else {
@@ -983,8 +988,6 @@ export default function App() {
             }
         } else {
             // Aucun utilisateur connecté (ni anonyme, ni Google)
-            // IMPORTANT : On NE connecte PAS automatiquement en anonyme ici.
-            // On laisse l'utilisateur "déconnecté" pour permettre la restauration de session Google si nécessaire
             setCurrentUser(null);
         }
     });
@@ -995,7 +998,6 @@ export default function App() {
 
   const handleGoogleLogin = async () => {
       // Login via Redirect pour mobile
-      // La fonction est void, le résultat est traité par le listener subscribeAuth au rechargement
       await authService.loginGoogle();
   };
 
